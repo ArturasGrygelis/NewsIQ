@@ -1,0 +1,41 @@
+# Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+.env
+*.log
+docs/chroma/
+
+# Frontend
+node_modules/
+.next/
+out/
+build/
+dist/
+*.local
+
+# Docker
+.env
+*.tar.gz
+chroma-backup.tar.gz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.bak
+*.tmp
