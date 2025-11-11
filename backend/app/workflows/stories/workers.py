@@ -1,37 +1,59 @@
-def create_article_summarizer(llm):
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain.prompts import PromptTemplate
+
+
+def create_hallucination_checker(llm):
+    """
+    Function to create a hallucination checker object using a passed LLM model.
+    
+    Args:
+        llm: The language model to be used for checking hallucinations in the student's answer.
+        
+    Returns:
+        Callable: A pipeline function that checks if the student's answer contains hallucinations.
+    """
+    
+
+    # Define the prompt template
+    prompt = PromptTemplate(
+        template="""
+        You are professional fact checker,  you need to check summary: {summary}, which is made from an article: {article}, was there made any factual mistakes, hallucinations.
+        If there are mistakes , return 'yes', if no mistakes, return 'no'
+        return answer as yes or no.
+        """,
+        input_variables=["article", "summary"],
+    )
+    
+    # Combine the prompt with the structured LLM hallucination checker
+    hallucination_grader = prompt | llm |  StrOutputParser()
+
+    # Return the hallucination checker object
+    return hallucination_grader
+
+
+
+
+def create_topics_identifier(llm):
     """
     Creates a structured-output summarizer that summarizes an article 
     and extracts main topics in a single call.
 
     Args:
-        llm: The language model used for summarization and topic extraction.
+        llm: The language model used for topic extraction.
 
     Returns:
-        Callable: A summarization pipeline that outputs structured data with 'summary' and 'topics'.
+        Callable: A topics identifier pipeline that outputs article 'topics'.
     """
 
-    # Define structured output schema
-    class ArticleSummary(BaseModel):
-        """Structured summary and topics extracted from an article."""
-        summary: str = Field(
-            description="A clear and concise summary of the given article."
-        )
-        topics: list[str] = Field(
-            description="A list of 3–10 main topics or keywords that capture the article's content."
-        )
-
-    # Create the structured-output LLM
-    structured_summarizer = llm.with_structured_output(ArticleSummary)
+    
 
     # Define the prompt template
     prompt = PromptTemplate(
         template="""
         You are a professional content summarizer.
         Read the article provided below and:
-        1. Write a concise and factual summary (1-3 sentences).
-        2. Identify and list the main topics, entities, or concepts mentioned in the article.
-
-        Return your result as a JSON object with keys 'summary' and 'topics'.
+        Identify and list the main topics, entities, or concepts mentioned in the article.
+        Do not add anything else!
         
         ARTICLE:
         {article}
@@ -40,70 +62,52 @@ def create_article_summarizer(llm):
     )
 
     # Combine prompt and model into a reusable summarization pipeline
-    summarizer = prompt | structured_summarizer
+    topic_identifier = prompt | llm | StrOutputParser()
+
+    # Return the ready-to-use summarizer pipeline
+    return topic_identifier
+
+
+
+
+@traceable
+def create_article_summarizer(llm):
+    """
+    Creates a structured-output summarizer that summarizes an article 
+    and extracts main topics in a single call.
+
+    Args:
+        llm: The language model used for summarization.
+
+    Returns:
+        Callable: A summarization pipeline that outputs summary.
+    """
+
+   
+
+    # Define the prompt template
+    prompt = PromptTemplate(
+        template="""
+        You are a professional content summarizer.
+        Read the article provided below and:
+        1. Write a concise and factual summary (1-3 sentences).
+        Do not add anything else!
+        
+        ARTICLE:
+        {article}
+        """,
+        input_variables=["article"],
+    )
+
+    # Combine prompt and model into a reusable summarization pipeline
+    summarizer = prompt | llm | StrOutputParser()
 
     # Return the ready-to-use summarizer pipeline
     return summarizer
 
 
 
-def create_article_selector(llm):
-    """
-    Creates a document selector based on topic relevance.
-    
-    Args:
-        llm: The language model to be used for selecting the most relevant document.
-        
-    Returns:
-        Callable: A pipeline function that selects the most relevant document based on the topic.
-    """
-    
-    class SelectedDocument(BaseModel):
-        """Structured output for document selection."""
-        selected_document_index: int = Field(
-            description="Index of the most relevant document in the provided list (0-based indexing)"
-        )
-        reasoning: str = Field(
-            description="Brief explanation of why this article was selected",
-            default=""
-        )
-    
-    # ✅ Use function_calling method for more reliable structured output
-    structured_metadata_extractor = llm.with_structured_output(
-        SelectedDocument,
-        method="function_calling"
-    )
 
-    prompt = PromptTemplate(
-        template="""You are a professional article selector tasked with finding the most relevant article.
 
-**Topic:** {topic}
 
-**Available Articles (by index):**
-{articles}
 
-**Task:**
-Analyze the topic and select the index (0-based) of the article that best matches the topic.
-
-**Instructions:**
-1. Carefully read the topic: {topic}
-2. Review all article summaries in the list
-3. Identify which article is most relevant to the topic
-4. Return the 0-based index of that article
-5. Provide brief reasoning for your selection
-6Select the article that best matches the topic.
-If several are equally relevant, prefer the one that would be most engaging or impactful for readers and society.
-
-**Important:**
-- You MUST return a valid index number
-- Index must be between 0 and {max_index}
-- If no article is highly relevant, select the closest match
-- Always provide the selected_document_index field
-
-Select the most relevant article now:
-""",
-        input_variables=["articles", "topic", "max_index"],
-    )
-    
-    metadata_extractor = prompt | structured_metadata_extractor
-    return metadata_extractor

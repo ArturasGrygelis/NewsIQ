@@ -1,3 +1,127 @@
+from .workers import create_article_summarizer
+from .tools import scraper_tool
+
+
+def grade_summary_v_article(state,llm,create_hallucination_checker ):
+    """
+    Determines whether the generation is grounded in the document and answers the question.
+    """
+    print("---CHECK HALLUCINATIONS---")
+    article_text = state["selected_document"]
+    steps = state["steps"]
+    summary = state.get("summary")
+    
+    steps.append("Check for hallucinations")
+    hallucination_grader = create_hallucination_checker(llm)
+    # Grading hallucinations
+    score = hallucination_grader.invoke(
+        {"article": article_text, "summary": summary}
+    )
+    
+
+    # Check hallucination
+    if score == "yes":
+        print("---Found hallucinations---")
+        return "Hallucinations"
+        
+    if score == "no":
+        print("---no hallucinations---")
+        return "No hallucinations"
+
+
+
+def add_to_chroma(state,vectorstore):
+    """
+    Adds the article to Chroma using vectorstore from state.
+    Stores title, source, topics, summary in metadata, and article text as page_content.
+    """
+
+    
+
+    # Extract article info
+
+    documents = state["selected_document"]  # This is a list
+    article = documents[0]  # Get the first (and only) document from the list
+
+    summary = state.get("summary", "")
+    topics = state.get("topics", [])
+    steps = state.get("steps", [])
+    steps.append("add_to_chroma")
+
+    article_text = article.page_content  # ← Use .page_content, not .get("text")
+    article_title = article.metadata.get("title", "Untitled")  # ← Access metadata
+    article_link = article.metadata.get("link", "")
+    article_authors = article.metadata.get("authors", "")
+    article_language = article.metadata.get("language", "")
+    
+    
+        
+    # Create Document
+    doc = Document(
+    page_content=article_text,
+    metadata={
+        "title": article_title,
+        "link": article_link,
+        "summary": summary,
+        "topics": ", ".join(topics) if isinstance(topics, list) else str(topics),
+        "language": article_language,
+        "authors": ", ".join(article_authors) if isinstance(topics, list) else str(article_authors), 
+    }
+)
+
+    # Add to Chroma
+    doc_id = str(uuid4())
+    vectorstore.add_documents(documents=[doc], ids=[doc_id])
+    
+
+    print(f"✅ Document added to Chroma: {doc_id}")
+
+    # Update state
+    return {
+        **state,
+        "documents": state.get("documents", []) + [doc],
+        "steps": steps
+    }
+
+
+
+
+def summarize_article(state, llm, create_article_summarizer,create_topics_identifier):
+    """
+    Summarize the article and extract main topics using the structured summarizer.
+    """
+
+    # Extract from state
+    article_text = state["selected_document"]
+    steps = state["steps"]
+
+    
+    steps.append("summarize_article")
+
+    # Create the summarization pipeline
+    summarizer = create_article_summarizer(llm)
+    topics_identifier = create_topics_identifier(llm)
+
+    
+    summary = summarizer.invoke({"article": article_text})
+    topics =  topics_identifier.invoke({"article": article_text})
+
+    # Log for debugging (optional)
+    print("📝 Article summarization completed.")
+    print(f"Summary: {summary}...")
+    print(f"Topics: {topics}")
+
+    # Return updated state
+    return {
+        **state,
+        "summary": summary,
+        "topics": topics,
+        "steps": steps,
+    }
+
+
+
+
 def initialize_workflow(state):
     """
     Initialize question and websites
@@ -28,193 +152,3 @@ def initialize_workflow(state):
         "steps": steps,
        
     }
-
-def web_search(state):
-    topic = state["topic"]
-    documents = state.get("documents", [])
-    steps = state["steps"]
-    steps.append("web_search")
-    k = 8 - len(documents)
-    web_results_list = []
-    time = state["todays_date"]
-    article_max_age = state.get("article_max_age", 1)
-    custom_date = state.get("custom_date", None)
-    # Calculate yesterday's date in ISO 8601 format
-    yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-    website_address = state.get("website_address", [])
-
-    if custom_date:
-        # Use custom date if provided
-        published_after = custom_date + "T00:00:00.000Z"
-    else:
-        # Calculate date based on article_max_age (default 1 day)
-        days_ago = datetime.datetime.now() - datetime.timedelta(days=article_max_age)
-        published_after = days_ago.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-
-    # Fetch results from exa
-    exa_results_raw = exa.search_and_contents(
-        query=topic,
-        start_published_date =published_after,
-        end_published_date =datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-        livecrawl = "auto",
-        type="auto",
-        
-
-        #exclude_text = ["Market analysis"],
-        num_results=6,
-        text={"max_characters": 2000},
-        summary={
-            "query": "Tell in summary a meaning about what is article written. Provide facts, be concise."
-        },
-        include_domains=websites,
-        
-    )
-    exa_results = exa_results_raw.results if hasattr(exa_results_raw, "results") else []
-    cleaned_exa_results = [clean_exa_document(doc) for doc in exa_results]
-    return {"documents": combined_documents, "question": question, "steps": steps}
-
-
-def summarize_article(state, llm, create_article_summarizer):
-    """
-    Summarize the article and extract main topics using the structured summarizer.
-    """
-
-    # Extract from state
-    article_text = state["selected_document"]
-    steps = state["steps"]
-
-    # Record this step
-    steps.append("summarize_article")
-
-    # Create the summarization pipeline
-    summarizer = create_article_summarizer(llm)
-
-    # Run the structured LLM call
-    result = summarizer.invoke({"article": article_text})
-
-    # Log for debugging (optional)
-    print("📝 Article summarization completed.")
-    print(f"Summary: {result.summary[:200]}...")
-    print(f"Topics: {result.topics}")
-
-    # Return updated state
-    return {
-        **state,
-        "summary": result.summary,
-        "topics": result.topics,
-        "steps": steps,
-    }
-
-
-def select_article(state,selector_llm):
-    """
-    Select the most relevant document from the available documents based on the topic.
-    LangGraph workflow node for article selection.
-    """
-    from .checkers import create_article_selector
-    import time as time_module
-
-    
-    topic = state["topic"]
-    documents = state["documents"]
-    steps = state["steps"]
-    time = state["todays_date"]
-    
-
-   
-    
-    # Initialize document selector
-    document_selector = create_article_selector(selector_llm)
-    
-    # Combine topic with date for context
-    topic_with_time = f"{topic} {time}"
-    article_summaries = [doc["                                   Apibendrinimas:    "] for doc in documents]
-    
-    print(f"🔍 Selecting most relevant article from {len(documents)} documents")
-    print(f"📅 Topic with context: {topic_with_time}")
-    
-    # ✅ Add retry logic with fallback to handle LLM tool calling errors
-    max_retries = 3
-    top_idx = 0  # Default to first article if all retries fail
-    
-    for attempt in range(max_retries):
-        try:
-            # Select the most relevant document using the metadata extractor
-            selection_result = document_selector.invoke({
-                "articles": article_summaries,
-                "topic": topic_with_time,
-                "max_index": len(documents) - 1
-            })
-            
-            top_idx = selection_result.selected_document_index
-            
-            # Validate index is within bounds
-            if 0 <= top_idx < len(documents):
-                print(f"✅ Selected document at index {top_idx} (attempt {attempt + 1})")
-                break
-            else:
-                print(f"⚠️ Invalid index {top_idx}, using first article as fallback")
-                top_idx = 0
-                break
-                
-        except Exception as e:
-            print(f"⚠️ Article selection attempt {attempt + 1} failed: {str(e)}")
-            
-            if attempt < max_retries - 1:
-                # Wait before retrying
-                time_module.sleep(1)
-                print(f"🔄 Retrying article selection...")
-            else:
-                # Final fallback: use first article
-                print(f"⚠️ All retries failed, defaulting to first article")
-                top_idx = 0
-    
-    selected_doc = documents[top_idx]
-    
-    print(f"📄 Selected article summary: {article_summaries[top_idx][:100]}...")
-    
-    steps.append("article_selected")
-    
-    return {
-
-        "documents": documents,
-        "steps": steps,
-        "selected_document": selected_doc,
-        
-    }
-
-
-
-def scrape_webpage_content(state, scraper_tool):
-    """
-    Scrapes a webpage and returns its content as part of the updated graph state.
-
-    Args:
-        state (dict): The current graph state. Must contain "url".
-        scraper_tool (callable): A function that takes a URL and returns a dict
-                                 with keys: title, text, source, error.
-
-    Returns:
-        dict: Updated state fragment with keys: documents (list of scraped docs)
-              and error if scraping fails.
-    """
-    steps = state["steps"]
-    steps.append("web_scraping")
-
-    website_address = state.get("website_address")
-    if not website_address:
-        return {"error": "No URL provided."}
-
-    result = scraper_tool(website_address)
-
-    if result.get("error"):
-        return {"error": result["error"]}
-
-    document = {
-        "title": result.get("title"),
-        "text": result.get("text"),
-        "source": result.get("source"),
-    }
-
-    return {"selected_document": [document]}
-
