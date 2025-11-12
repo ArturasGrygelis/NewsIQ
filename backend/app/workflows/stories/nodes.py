@@ -95,6 +95,7 @@ def summarize_article(state, llm, create_article_summarizer,create_topics_identi
 
     # Extract from state
     article_text = state["selected_document"]
+    article = article_text[0]  # Get the first document
     steps = state["steps"]
 
     
@@ -105,8 +106,8 @@ def summarize_article(state, llm, create_article_summarizer,create_topics_identi
     topics_identifier = create_topics_identifier(llm)
 
     
-    summary = summarizer.invoke({"article": article_text})
-    topics =  topics_identifier.invoke({"article": article_text})
+    summary = summarizer.invoke({"article": article})
+    topics =  topics_identifier.invoke({"article": article})
 
     # Log for debugging (optional)
     print("📝 Article summarization completed.")

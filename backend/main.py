@@ -149,10 +149,22 @@ async def answer_question(request: QuestionAnswerRequest):
             "question": request.question,
         })
         
+        # Extract documents/sources if available
+        documents = result.get("selected_documents", result.get("documents", []))
+        sources = []
+        if documents:
+            for doc in documents[:3]:  # Limit to top 3
+                if hasattr(doc, 'metadata'):
+                    sources.append({
+                        "title": doc.metadata.get("title", "Unknown"),
+                        "url": doc.metadata.get("link", ""),
+                        "snippet": doc.page_content[:200] if hasattr(doc, 'page_content') else ""
+                    })
+        
         return {
-            "success": True,
             "answer": result.get("answer", "No answer generated"),
-            "result": result
+            "sources": sources,
+            "session_id": str(uuid.uuid4())
         }
         
     except Exception as e:
@@ -163,141 +175,31 @@ async def answer_question(request: QuestionAnswerRequest):
 @app.post("/api/ingest", response_model=ArticleIngestResponse)
 async def ingest_article(request: ArticleIngestRequest):
     """
-    Ingest an article into the vectorstore.
-    Can use exact URL or search by topic/website/max_age.
+    Ingest an article using the scrape-summarize workflow.
+    Requires article_url (direct article URL).
     """
     try:
-        if request.article_url:
-            # Load article from direct URL
-            article = article_service.load_article_from_url(request.article_url)
-            
-            # Prepare documents for vectorstore
-            documents = article_service.prepare_documents_for_vectorstore(article)
-            
-            # Add to vectorstore
-            vectorstore_service.add_documents(documents)
-            
-            return ArticleIngestResponse(
-                success=True,
-                message=f"Article '{article.get('title', 'Unknown')}' successfully ingested",
-                article_summary=article.get('text', '')[:500] + "..." if len(article.get('text', '')) > 500 else article.get('text', '')
-            )
-        else:
-            # Search for articles
-            if not request.topic:
-                raise HTTPException(status_code=400, detail="Either article_url or topic must be provided")
-            
-            articles = article_service.search_articles(
-                topic=request.topic,
-                website=request.website,
-                max_age_days=request.max_age_days or 7
-            )
-            
-            if not articles:
-                return ArticleIngestResponse(
-                    success=False,
-                    message="No articles found matching the criteria"
-                )
-            
-            # Process all found articles
-            total_docs = 0
-            for article in articles:
-                documents = article_service.prepare_documents_for_vectorstore(article)
-                vectorstore_service.add_documents(documents)
-                total_docs += len(documents)
-            
-            return ArticleIngestResponse(
-                success=True,
-                message=f"Successfully ingested {len(articles)} articles ({total_docs} chunks)",
-                article_summary=f"Found articles: {', '.join([a.get('title', 'Unknown') for a in articles[:3]])}"
-            )
+        if not request.article_url:
+            raise HTTPException(status_code=400, detail="article_url is required")
         
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/ask", response_model=ChatResponse)
-async def ask_question(request: QuestionRequest):
-    """
-    Ask a question and get an answer based on articles in the vectorstore.
-    """
-    try:
-        from langchain_groq import ChatGroq
-        from langchain.prompts import PromptTemplate
-        from langchain_core.output_parsers import StrOutputParser
+        if not summarizer_graph:
+            raise HTTPException(status_code=500, detail="Summarizer workflow not initialized")
         
-        # Create or retrieve session
-        session_id = request.session_id or str(uuid.uuid4())
-        
-        if session_id not in sessions:
-            sessions[session_id] = {"history": []}
-        
-        # Search vectorstore for relevant documents
-        documents = vectorstore_service.search(request.question, k=7, search_type="mmr")
-        
-        if not documents:
-            return ChatResponse(
-                answer="I couldn't find any relevant articles in the knowledge base. Please ingest some articles first.",
-                sources=[],
-                session_id=session_id
-            )
-        
-        # Initialize LLM
-        llm = ChatGroq(
-            model="gemma2-9b-it",
-            temperature=0.0,
-            max_tokens=400,
-            api_key=os.getenv("GROQ_API_KEY")
-        )
-        
-        # Create QA chain
-        prompt = PromptTemplate(
-            template="""You are an assistant for question-answering tasks. 
-            Use the following pieces of retrieved documents to answer the question. If you don't know the answer, just say that you don't know.
-            Do not repeat yourself!
-            Be informative and concise.
-            Question: {question} 
-            Documents: {documents} 
-            Answer:
-            """,
-            input_variables=["question", "documents"],
-        )
-        
-        qa_chain = prompt | llm | StrOutputParser()
-        
-        # Format documents
-        docs_text = "\n\n".join([f"Document {i+1}:\n{doc.page_content}" for i, doc in enumerate(documents)])
-        
-        # Generate answer
-        answer = qa_chain.invoke({
-            "question": request.question,
-            "documents": docs_text
+        # Invoke the article summarization workflow
+        result = summarizer_graph.invoke({
+            "article_url": request.article_url,
         })
         
-        # Extract sources
-        sources = []
-        for doc in documents:
-            source_info = {
-                "title": doc.metadata.get("title", "Unknown"),
-                "url": doc.metadata.get("url", ""),
-                "snippet": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
-            }
-            if source_info not in sources:  # Avoid duplicates
-                sources.append(source_info)
-        
-        # Store in session history
-        sessions[session_id]["history"].append({
-            "question": request.question,
-            "answer": answer
-        })
-        
-        return ChatResponse(
-            answer=answer,
-            sources=sources[:3],  # Limit to top 3 sources
-            session_id=session_id
+        return ArticleIngestResponse(
+            success=True,
+            message=f"Article successfully processed and stored in vectorstore",
+            article_summary=result.get("summary", "")[:500] if result.get("summary") else "Summary not available"
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error ingesting article: {str(e)}")
 
 @app.delete("/api/session/{session_id}")
 async def clear_session(session_id: str):

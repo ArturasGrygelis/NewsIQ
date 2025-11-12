@@ -38,7 +38,7 @@ export default function AppPage() {
     setLoading(true)
 
     try {
-      const response = await axios.post('/api/ask', {
+      const response = await axios.post('/api/answer', {
         question: input,
         session_id: sessionId
       })
