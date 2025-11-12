@@ -81,7 +81,16 @@ export default function AppPage() {
       })
 
       if (response.data.success) {
-        setIngestResult(`✓ ${response.data.message}`)
+        const data = response.data
+        setIngestResult(
+          `✓ ${data.message}\n\n` +
+          `📰 Title: ${data.article_title || 'N/A'}\n` +
+          `✍️ Authors: ${data.article_authors || 'N/A'}\n` +
+          `🌐 Language: ${data.article_language?.toUpperCase() || 'N/A'}\n` +
+          `🏷️ Topics: ${data.article_topics || 'N/A'}\n\n` +
+          `📝 Summary:\n${data.article_summary || 'N/A'}\n\n` +
+          `📄 Article Preview:\n${data.article_text ? data.article_text.substring(0, 500) + '...' : 'N/A'}`
+        )
         // Clear form
         setArticleUrl('')
         setTopic('')

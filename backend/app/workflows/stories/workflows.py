@@ -52,7 +52,7 @@ def article_summarization_graph(vectorstore):
     
     # LLM
     llm = ChatGroq(
-        model="openai/gpt-oss-20b",  # Specify the Gemma2 9B model
+        model="openai/gpt-oss-120b",  
         temperature=0.0,
         max_tokens=6000,
         max_retries=3,

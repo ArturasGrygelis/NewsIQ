@@ -80,6 +80,12 @@ class ArticleIngestResponse(BaseModel):
     success: bool
     message: str
     article_summary: Optional[str] = None
+    article_title: Optional[str] = None
+    article_url: Optional[str] = None
+    article_authors: Optional[str] = None
+    article_language: Optional[str] = None
+    article_topics: Optional[str] = None
+    article_text: Optional[str] = None
 
 # Store for session-based conversations
 sessions = {}
@@ -193,10 +199,27 @@ async def ingest_article(request: ArticleIngestRequest):
             "website_address": request.article_url,
         })
         
+        # Extract article details from result
+        documents = result.get("selected_document", [])
+        article = documents[0] if documents else None
+        
+        topics = result.get("topics", [])
+        topics_str = ", ".join(topics) if isinstance(topics, list) else str(topics)
+        
+        # Convert authors to string if it's a list
+        authors = article.metadata.get("authors", "") if article else ""
+        authors_str = ", ".join(authors) if isinstance(authors, list) else str(authors)
+        
         return ArticleIngestResponse(
             success=True,
             message=f"Article successfully processed and stored in vectorstore",
-            article_summary=result.get("summary", "")[:500] if result.get("summary") else "Summary not available"
+            article_summary=result.get("summary", ""),
+            article_title=article.metadata.get("title", "") if article else "",
+            article_url=article.metadata.get("link", "") if article else request.article_url,
+            article_authors=authors_str,
+            article_language=article.metadata.get("language", "") if article else "",
+            article_topics=topics_str,
+            article_text=article.page_content[:1000] if article else ""  # First 1000 chars
         )
         
     except Exception as e:
