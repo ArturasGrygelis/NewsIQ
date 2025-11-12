@@ -32,6 +32,7 @@ export default function AppPage() {
   const [ingestLoading, setIngestLoading] = useState(false)
   const [ingestResult, setIngestResult] = useState<string | null>(null)
   const [ingestedArticle, setIngestedArticle] = useState<any>(null)
+  const [ingestedArticleExpanded, setIngestedArticleExpanded] = useState(false)
 
   const handleSendMessage = async () => {
     if (!input.trim() || loading) return
@@ -261,20 +262,16 @@ export default function AppPage() {
                           <div className="mt-3 border-t border-gray-200 pt-2">
                             <button
                               onClick={() => setExpandedSource(expandedSource === idx ? null : idx)}
-                              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 w-full text-left"
+                              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 w-full text-left mb-2"
                             >
-                              {expandedSource === idx ? '▼' : '▶'} Document Text
+                              {expandedSource === idx ? '▼ Hide' : '▶ Show'} Full Document Text
                             </button>
-                            {expandedSource === idx ? (
-                              <div className="mt-2 max-h-96 overflow-y-auto bg-white rounded p-3 border border-gray-200">
+                            {expandedSource === idx && (
+                              <div className="mt-2 overflow-y-auto bg-white rounded p-3 border border-gray-200" style={{maxHeight: 'none'}}>
                                 <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
                                   {source.content}
                                 </p>
                               </div>
-                            ) : source.snippet && (
-                              <p className="text-xs text-gray-600 mt-2 line-clamp-3 italic">
-                                {source.snippet}
-                              </p>
                             )}
                           </div>
                         )}
