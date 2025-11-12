@@ -169,13 +169,19 @@ async def answer_question(request: QuestionAnswerRequest):
         if documents:
             for doc in documents[:5]:  # Show up to 5 source documents
                 if hasattr(doc, 'metadata'):
+                    # Convert authors to string if it's a list
+                    authors = doc.metadata.get("authors", "")
+                    authors_str = ", ".join(authors) if isinstance(authors, list) else str(authors)
+                    
                     source = {
                         "title": doc.metadata.get("title", "Unknown"),
                         "url": doc.metadata.get("link", ""),
                         "snippet": doc.page_content[:300] if hasattr(doc, 'page_content') else "",
-                        "authors": doc.metadata.get("authors", ""),
+                        "content": doc.page_content if hasattr(doc, 'page_content') else "",  # Full content
+                        "authors": authors_str,
                         "language": doc.metadata.get("language", ""),
-                        "topics": doc.metadata.get("topics", "")
+                        "topics": doc.metadata.get("topics", ""),
+                        "summary": doc.metadata.get("summary", "")
                     }
                     sources.append(source)
                     print(f"📚 Added source: {source['title']}")

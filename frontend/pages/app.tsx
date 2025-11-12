@@ -13,6 +13,8 @@ interface Message {
     authors?: string
     language?: string
     topics?: string
+    content?: string  // Full document text
+    summary?: string  // Document summary
   }>
 }
 
@@ -22,12 +24,10 @@ export default function AppPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [expandedSource, setExpandedSource] = useState<number | null>(null)
 
   // Ingest form state
-  const [ingestType, setIngestType] = useState<'url' | 'search'>('search')
   const [articleUrl, setArticleUrl] = useState('')
-  const [topic, setTopic] = useState('')
-  const [website, setWebsite] = useState('')
   const [maxAge, setMaxAge] = useState(7)
   const [ingestLoading, setIngestLoading] = useState(false)
   const [ingestResult, setIngestResult] = useState<string | null>(null)
@@ -73,11 +73,7 @@ export default function AppPage() {
     setIngestResult(null)
 
     try {
-      const payload = ingestType === 'url' 
-        ? { article_url: articleUrl }
-        : { topic, website: website || undefined, max_age_days: maxAge }
-
-      const response = await axios.post('/api/ingest', payload, {
+      const response = await axios.post('/api/ingest', { article_url: articleUrl }, {
         timeout: 120000  // 2 minutes timeout
       })
 
@@ -92,8 +88,6 @@ export default function AppPage() {
         console.log('✅ Set ingestedArticle state')
         // Clear form
         setArticleUrl('')
-        setTopic('')
-        setWebsite('')
         setMaxAge(7)
       } else {
         setIngestResult(`✗ ${response.data.message}`)
@@ -224,35 +218,65 @@ export default function AppPage() {
                           href={source.url} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 font-semibold text-sm flex items-start gap-2 mb-2"
+                          className="text-blue-600 hover:text-blue-800 font-semibold text-sm flex items-start gap-2 mb-3"
                         >
                           <LinkIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span className="line-clamp-2">{source.title}</span>
                         </a>
                         
-                        {source.authors && (
-                          <p className="text-xs text-gray-600 mb-1">
-                            <span className="font-medium">Authors:</span> {source.authors}
-                          </p>
-                        )}
+                        {/* Metadata Section */}
+                        <div className="space-y-2 border-t border-gray-200 pt-2">
+                          {source.authors && (
+                            <div>
+                              <p className="text-xs font-semibold text-gray-700">✍️ Authors</p>
+                              <p className="text-xs text-gray-600">{source.authors}</p>
+                            </div>
+                          )}
+                          
+                          {source.language && (
+                            <div>
+                              <p className="text-xs font-semibold text-gray-700">🌐 Language</p>
+                              <p className="text-xs text-gray-600 uppercase">{source.language}</p>
+                            </div>
+                          )}
+                          
+                          {source.topics && (
+                            <div>
+                              <p className="text-xs font-semibold text-gray-700">🏷️ Topics</p>
+                              <p className="text-xs text-gray-600">{source.topics}</p>
+                            </div>
+                          )}
+                          
+                          {source.summary && (
+                            <div>
+                              <p className="text-xs font-semibold text-gray-700">📝 Summary</p>
+                              <p className="text-xs text-gray-600 leading-relaxed">{source.summary}</p>
+                            </div>
+                          )}
+                        </div>
                         
-                        {source.language && (
-                          <p className="text-xs text-gray-600 mb-1">
-                            <span className="font-medium">Language:</span> {source.language.toUpperCase()}
-                          </p>
-                        )}
-                        
-                        {source.topics && (
-                          <div className="mt-2">
-                            <p className="text-xs font-medium text-gray-700 mb-1">Topics:</p>
-                            <p className="text-xs text-gray-600 line-clamp-2">{source.topics}</p>
+                        {/* Expandable Content Section */}
+                        {source.content && (
+                          <div className="mt-3 border-t border-gray-200 pt-2">
+                            <button
+                              onClick={() => setExpandedSource(expandedSource === idx ? null : idx)}
+                              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                            >
+                              {expandedSource === idx ? '▼' : '▶'} Document Text
+                            </button>
+                            {expandedSource === idx && (
+                              <div className="mt-2 max-h-96 overflow-y-auto bg-white rounded p-3 border border-gray-200">
+                                <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                                  {source.content}
+                                </p>
+                              </div>
+                            )}
+                            {expandedSource !== idx && source.snippet && (
+                              <p className="text-xs text-gray-600 mt-2 line-clamp-3 italic">
+                                {source.snippet}
+                              </p>
+                            )}
                           </div>
-                        )}
-                        
-                        {source.snippet && (
-                          <p className="text-xs text-gray-600 mt-2 line-clamp-3 italic">
-                            {source.snippet}
-                          </p>
                         )}
                       </div>
                     ))
@@ -271,99 +295,28 @@ export default function AppPage() {
         {/* Ingest Tab */}
         {activeTab === 'ingest' && (
           <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Ingest Articles</h2>
-
-            {/* Ingest Type Toggle */}
-            <div className="flex space-x-4 mb-6">
-              <button
-                onClick={() => setIngestType('search')}
-                className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
-                  ingestType === 'search'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Search className="h-5 w-5 mr-2" />
-                Search by Topic
-              </button>
-              <button
-                onClick={() => setIngestType('url')}
-                className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
-                  ingestType === 'url'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <LinkIcon className="h-5 w-5 mr-2" />
-                Direct URL
-              </button>
-            </div>
-
-            {/* Search Form */}
-            {ingestType === 'search' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Topic *
-                  </label>
-                  <input
-                    type="text"
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    placeholder="e.g., artificial intelligence, climate change"
-                    className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Website (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
-                    placeholder="e.g., bbc.com, nytimes.com"
-                    className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Max Age (days)
-                  </label>
-                  <input
-                    type="number"
-                    value={maxAge}
-                    onChange={(e) => setMaxAge(parseInt(e.target.value))}
-                    min="1"
-                    max="30"
-                    className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-              </div>
-            )}
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Ingest Article</h2>
 
             {/* URL Form */}
-            {ingestType === 'url' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Article URL *
-                  </label>
-                  <input
-                    type="url"
-                    value={articleUrl}
-                    onChange={(e) => setArticleUrl(e.target.value)}
-                    placeholder="https://example.com/article"
-                    className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Article URL *
+                </label>
+                <input
+                  type="url"
+                  value={articleUrl}
+                  onChange={(e) => setArticleUrl(e.target.value)}
+                  placeholder="https://example.com/article"
+                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
               </div>
-            )}
+            </div>
 
             {/* Submit Button */}
             <button
               onClick={handleIngest}
-              disabled={ingestLoading || (ingestType === 'url' ? !articleUrl : !topic)}
+              disabled={ingestLoading || !articleUrl}
               className="mt-6 w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {ingestLoading ? (
