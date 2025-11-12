@@ -207,12 +207,13 @@ export default function AppPage() {
               </div>
               
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {messages
-                  .filter(msg => msg.role === 'assistant' && msg.sources && msg.sources.length > 0)
-                  .slice(-1)[0]?.sources ? (
-                  messages
+                {(() => {
+                  const lastAssistantMsg = messages
                     .filter(msg => msg.role === 'assistant' && msg.sources && msg.sources.length > 0)
-                    .slice(-1)[0].sources.map((source, idx) => (
+                    .slice(-1)[0];
+                  
+                  return lastAssistantMsg?.sources ? (
+                    lastAssistantMsg.sources.map((source, idx) => (
                       <div key={idx} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 transition-colors">
                         <a 
                           href={source.url} 
@@ -260,18 +261,17 @@ export default function AppPage() {
                           <div className="mt-3 border-t border-gray-200 pt-2">
                             <button
                               onClick={() => setExpandedSource(expandedSource === idx ? null : idx)}
-                              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 w-full text-left"
                             >
                               {expandedSource === idx ? '▼' : '▶'} Document Text
                             </button>
-                            {expandedSource === idx && (
+                            {expandedSource === idx ? (
                               <div className="mt-2 max-h-96 overflow-y-auto bg-white rounded p-3 border border-gray-200">
                                 <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
                                   {source.content}
                                 </p>
                               </div>
-                            )}
-                            {expandedSource !== idx && source.snippet && (
+                            ) : source.snippet && (
                               <p className="text-xs text-gray-600 mt-2 line-clamp-3 italic">
                                 {source.snippet}
                               </p>
@@ -280,13 +280,14 @@ export default function AppPage() {
                         )}
                       </div>
                     ))
-                ) : (
-                  <div className="text-center text-gray-400 mt-12">
-                    <Database className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                    <p className="text-sm">No sources yet</p>
-                    <p className="text-xs mt-1">Ask a question to see source documents</p>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-center text-gray-400 mt-12">
+                      <Database className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">No sources yet</p>
+                      <p className="text-xs mt-1">Ask a question to see source documents</p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
