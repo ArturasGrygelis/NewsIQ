@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import uuid
 import os
+import asyncio
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -120,10 +121,11 @@ async def scrape_and_summarize(request: ScrapeAndSummarizeRequest):
         if not summarizer_graph:
             raise HTTPException(status_code=500, detail="Summarizer workflow not initialized")
         
-        # Invoke the summarization workflow
-        result = summarizer_graph.invoke({
-            "website_address": request.website_address,
-        })
+        # Invoke the summarization workflow asynchronously
+        result = await asyncio.to_thread(
+            summarizer_graph.invoke,
+            {"website_address": request.website_address}
+        )
         
         return {
             "success": True,
@@ -150,10 +152,11 @@ async def answer_question(request: QuestionAnswerRequest):
         if not qa_graph:
             raise HTTPException(status_code=500, detail="QA workflow not initialized")
         
-        # Invoke the question-answering workflow
-        result = qa_graph.invoke({
-            "question": request.question,
-        })
+        # Invoke the question-answering workflow asynchronously
+        result = await asyncio.to_thread(
+            qa_graph.invoke,
+            {"question": request.question}
+        )
         
         # Extract documents/sources if available
         documents = result.get("selected_documents", result.get("documents", []))
@@ -194,10 +197,11 @@ async def ingest_article(request: ArticleIngestRequest):
         if not summarizer_graph:
             raise HTTPException(status_code=500, detail="Summarizer workflow not initialized")
         
-        # Invoke the article summarization workflow
-        result = summarizer_graph.invoke({
-            "website_address": request.article_url,
-        })
+        # Invoke the article summarization workflow asynchronously
+        result = await asyncio.to_thread(
+            summarizer_graph.invoke,
+            {"website_address": request.article_url}
+        )
         
         # Extract article details from result
         documents = result.get("selected_document", [])

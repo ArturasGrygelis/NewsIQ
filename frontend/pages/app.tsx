@@ -31,6 +31,7 @@ export default function AppPage() {
   const [maxAge, setMaxAge] = useState(7)
   const [ingestLoading, setIngestLoading] = useState(false)
   const [ingestResult, setIngestResult] = useState<string | null>(null)
+  const [ingestedArticle, setIngestedArticle] = useState<any>(null)
 
   const handleSendMessage = async () => {
     if (!input.trim() || loading) return
@@ -82,15 +83,8 @@ export default function AppPage() {
 
       if (response.data.success) {
         const data = response.data
-        setIngestResult(
-          `✓ ${data.message}\n\n` +
-          `📰 Title: ${data.article_title || 'N/A'}\n` +
-          `✍️ Authors: ${data.article_authors || 'N/A'}\n` +
-          `🌐 Language: ${data.article_language?.toUpperCase() || 'N/A'}\n` +
-          `🏷️ Topics: ${data.article_topics || 'N/A'}\n\n` +
-          `📝 Summary:\n${data.article_summary || 'N/A'}\n\n` +
-          `📄 Article Preview:\n${data.article_text ? data.article_text.substring(0, 500) + '...' : 'N/A'}`
-        )
+        setIngestResult(`✓ ${data.message}`)
+        setIngestedArticle(data)
         // Clear form
         setArticleUrl('')
         setTopic('')
@@ -385,6 +379,88 @@ export default function AppPage() {
                   : 'bg-red-50 text-red-800 border border-red-200'
               }`}>
                 {ingestResult}
+              </div>
+            )}
+
+            {/* Ingested Article Display */}
+            {ingestedArticle && (
+              <div className="mt-6 flex gap-4">
+                {/* Main Article Content */}
+                <div className="flex-1 bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                    {ingestedArticle.article_title || 'Untitled'}
+                  </h3>
+                  
+                  {ingestedArticle.article_url && (
+                    <a 
+                      href={ingestedArticle.article_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline text-sm mb-4 inline-block"
+                    >
+                      🔗 View Original Article
+                    </a>
+                  )}
+
+                  <div className="prose max-w-none">
+                    <h4 className="text-lg font-semibold text-gray-800 mt-4 mb-2">Article Text</h4>
+                    <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                      {ingestedArticle.article_text || 'No content available'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Metadata Sidebar */}
+                <div className="w-80 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border border-gray-200">
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
+                    <h3 className="text-white font-semibold flex items-center">
+                      <Database className="h-5 w-5 mr-2" />
+                      Article Metadata
+                    </h3>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {/* Summary */}
+                    {ingestedArticle.article_summary && (
+                      <div className="border-b border-gray-200 pb-3">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2">📝 Summary</h4>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          {ingestedArticle.article_summary}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Authors */}
+                    {ingestedArticle.article_authors && (
+                      <div className="border-b border-gray-200 pb-3">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2">✍️ Authors</h4>
+                        <p className="text-sm text-gray-600">
+                          {ingestedArticle.article_authors}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Language */}
+                    {ingestedArticle.article_language && (
+                      <div className="border-b border-gray-200 pb-3">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2">🌐 Language</h4>
+                        <p className="text-sm text-gray-600 uppercase">
+                          {ingestedArticle.article_language}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Topics */}
+                    {ingestedArticle.article_topics && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2">🏷️ Topics</h4>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          {ingestedArticle.article_topics}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
