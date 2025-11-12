@@ -6,9 +6,8 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: process.env.NODE_ENV === 'production' 
-          ? 'http://backend:8000/api/:path*'
-          : 'http://localhost:8000/api/:path*',
+        // Always use backend service name in Docker network
+        destination: 'http://backend:8000/api/:path*',
       },
     ]
   },
