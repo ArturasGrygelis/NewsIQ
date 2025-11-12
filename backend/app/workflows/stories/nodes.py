@@ -9,7 +9,10 @@ def grade_summary_v_article(state,llm,create_hallucination_checker ):
     Determines whether the generation is grounded in the document and answers the question.
     """
     print("---CHECK HALLUCINATIONS---")
-    article_text = state["selected_document"]
+    # selected_document is a list of Document objects
+    documents = state["selected_document"]
+    article_text = documents[0].page_content if documents else ""
+    
     steps = state["steps"]
     summary = state.get("summary")
     
@@ -93,8 +96,9 @@ def summarize_article(state, llm, create_article_summarizer,create_topics_identi
     Summarize the article and extract main topics using the structured summarizer.
     """
 
-    # Extract from state
-    article_text = state.get("selected_document", [])
+    # Extract from state - selected_document is a list of Document objects
+    documents = state["selected_document"]
+    article_text = documents[0].page_content if documents else ""
     
     steps = state["steps"]
 
@@ -185,4 +189,7 @@ def scrape_webpage_content(state):
 
     
 
-    return {"selected_document": docs}
+    return {
+        "selected_document": docs,
+        "steps": steps
+    }

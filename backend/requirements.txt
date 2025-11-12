@@ -18,7 +18,7 @@ html2text
 cloudscraper
 IPython
 typing-extensions
-
+newspaper3k
 
 
 

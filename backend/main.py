@@ -190,7 +190,7 @@ async def ingest_article(request: ArticleIngestRequest):
         
         # Invoke the article summarization workflow
         result = summarizer_graph.invoke({
-            "article_url": request.article_url,
+            "website_address": request.article_url,
         })
         
         return ArticleIngestResponse(
