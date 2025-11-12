@@ -1,24 +1,23 @@
-fastapi==0.109.0
-uvicorn==0.27.0
+fastapi
+uvicorn
 pydantic>=2.7.4
-python-dotenv==1.0.0
-langchain-groq==0.2.5
-langchain-community==0.3.19
-langchain-core==0.3.45
-langgraph==0.3.10
-langchain==0.3.20
-langsmith==0.3.13
+python-dotenv
+langchain-groq
+langchain-community
+langchain-core
+langgraph
+langchain
+langsmith
 langchain-chroma
-exa-py==1.7.1
-sentence-transformers==2.3.1
-chromadb==0.4.22
-beautifulsoup4==4.12.3
-torch==2.1.2
-IPython==8.20.0
-readability-lxml==0.8.1
-html2text==2020.1.16
-cloudscraper==1.2.71
-typing-extensions==4.9.0
+sentence-transformers
+chromadb
+langchain_huggingface
+beautifulsoup4
+readability-lxml
+html2text
+cloudscraper
+IPython
+typing-extensions
 
 
 

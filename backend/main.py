@@ -23,23 +23,21 @@ app.add_middleware(
 
 # Global instances - initialized on startup
 vectorstore_service = None
-article_service = None
 summarizer_graph = None
 qa_graph = None
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize services and workflows on startup."""
-    global vectorstore_service, article_service, summarizer_graph, qa_graph
+    global vectorstore_service, summarizer_graph, qa_graph
     
-    from app.services import VectorStoreService, ArticleService
+    from app.services import VectorStoreService
     from app.workflows.stories.workflows import article_summarization_graph
     from app.workflows.answer.workflows import question_answering_graph
     
     # Initialize services
     print("🚀 Initializing NewsIQ services...")
     vectorstore_service = VectorStoreService(persist_directory="./app/chroma")
-    article_service = ArticleService()
     
     # Initialize workflows
     print("📊 Building workflow graphs...")

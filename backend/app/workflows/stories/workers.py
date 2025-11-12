@@ -1,6 +1,6 @@
 from typing_extensions import TypedDict, List, Annotated
 from langchain_core.output_parsers import StrOutputParser
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 
 def create_hallucination_checker(llm):

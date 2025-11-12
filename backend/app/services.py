@@ -1,14 +1,10 @@
 import os
-from typing import Dict, List, Optional
+from typing import List
 from langchain_chroma import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.schema.retriever import BaseRetriever
-from langchain.schema import Document
-from langchain_core.pydantic_v1 import Field
-from exa_py import Exa
-from langchain_community.document_loaders import NewsURLLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-import datetime
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.documents import Document
+from pydantic import Field, BaseModel
 
 
 # Helper function to add instructions to the query
@@ -18,7 +14,7 @@ def get_detailed_instruct(task_description: str, query: str) -> str:
 
 
 # Custom Retriever class with instruction-augmented queries
-class InstructRetriever(BaseRetriever):
+class InstructRetriever(BaseRetriever, BaseModel):
     """Retriever that adds instruction to queries before retrieval."""
     
     base_retriever: BaseRetriever = Field(...)
@@ -85,123 +81,7 @@ class VectorStoreService:
             task_description=task_description
         )
         return self.instruct_retriever
-    
-    def add_documents(self, documents: List[Document]):
-        """Add documents to the vectorstore."""
-        if documents:
-            self.vectorstore.add_documents(documents)
-            return True
-        return False
-    
-    def search(self, query: str, k: int = 7, search_type: str = "mmr"):
-        """Search the vectorstore."""
-        retriever = self.vectorstore.as_retriever(
-            search_type=search_type,
-            search_kwargs={"k": k}
-        )
-        return retriever.invoke(query)
-    
-    def clear(self):
-        """Clear the vectorstore."""
-        # Delete and recreate
-        if os.path.exists(self.persist_directory):
-            import shutil
-            shutil.rmtree(self.persist_directory)
-        self.vectorstore = self._initialize_vectorstore()
 
 
-class ArticleService:
-    """Service for article operations."""
-    
-    def __init__(self):
-        self.exa_api_key = os.getenv("EXA_API_KEY")
-        self.exa_client = Exa(api_key=self.exa_api_key) if self.exa_api_key else None
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=550,
-            chunk_overlap=40
-        )
-    
-    def search_articles(
-        self,
-        topic: str,
-        website: Optional[str] = None,
-        max_age_days: int = 7
-    ) -> List[Dict]:
-        """Search for articles using Exa."""
-        if not self.exa_client:
-            raise ValueError("EXA_API_KEY not configured")
-        
-        # Calculate start date
-        start_date = (datetime.datetime.now() - datetime.timedelta(days=max_age_days)).strftime("%Y-%m-%d")
-        
-        # Build search query
-        search_options = {
-            "query": topic,
-            "num_results": 5,
-            "use_autoprompt": True,
-            "start_published_date": start_date,
-            "type": "neural"
-        }
-        
-        if website:
-            search_options["include_domains"] = [website]
-        
-        results = self.exa_client.search_and_contents(**search_options)
-        
-        articles = []
-        for result in results.results:
-            articles.append({
-                "title": result.title,
-                "url": result.url,
-                "text": result.text if hasattr(result, 'text') else "",
-                "published_date": result.published_date if hasattr(result, 'published_date') else None
-            })
-        
-        return articles
-    
-    def load_article_from_url(self, url: str) -> Dict:
-        """Load article content from URL."""
-        try:
-            loader = NewsURLLoader(urls=[url])
-            documents = loader.load()
-            
-            if documents:
-                doc = documents[0]
-                return {
-                    "title": doc.metadata.get("title", ""),
-                    "url": url,
-                    "text": doc.page_content,
-                    "source": doc.metadata.get("source", url)
-                }
-            else:
-                raise ValueError("No content loaded from URL")
-        except Exception as e:
-            raise ValueError(f"Failed to load article: {str(e)}")
-    
-    def prepare_documents_for_vectorstore(self, article: Dict) -> List[Document]:
-        """Split article into chunks and prepare for vectorstore."""
-        text = article.get("text", "")
-        
-        if not text:
-            return []
-        
-        # Create a document
-        doc = Document(
-            page_content=text,
-            metadata={
-                "title": article.get("title", ""),
-                "url": article.get("url", ""),
-                "source": article.get("source", article.get("url", "")),
-                "summary": article.get("summary", "")
-            }
-        )
-        
-        # Split into chunks
-        chunks = self.text_splitter.split_documents([doc])
-        
-        return chunks
-
-
-# Initialize global services
+# Initialize global service
 vectorstore_service = VectorStoreService()
-article_service = ArticleService()
