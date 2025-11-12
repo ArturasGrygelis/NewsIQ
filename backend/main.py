@@ -153,12 +153,15 @@ async def answer_question(request: QuestionAnswerRequest):
         documents = result.get("selected_documents", result.get("documents", []))
         sources = []
         if documents:
-            for doc in documents[:3]:  # Limit to top 3
+            for doc in documents[:5]:  # Show up to 5 source documents
                 if hasattr(doc, 'metadata'):
                     sources.append({
                         "title": doc.metadata.get("title", "Unknown"),
                         "url": doc.metadata.get("link", ""),
-                        "snippet": doc.page_content[:200] if hasattr(doc, 'page_content') else ""
+                        "snippet": doc.page_content[:300] if hasattr(doc, 'page_content') else "",
+                        "authors": doc.metadata.get("authors", ""),
+                        "language": doc.metadata.get("language", ""),
+                        "topics": doc.metadata.get("topics", "")
                     })
         
         return {

@@ -10,6 +10,9 @@ interface Message {
     title: string
     url: string
     snippet: string
+    authors?: string
+    language?: string
+    topics?: string
   }>
 }
 
@@ -41,6 +44,8 @@ export default function AppPage() {
       const response = await axios.post('/api/answer', {
         question: input,
         session_id: sessionId
+      }, {
+        timeout: 120000  // 2 minutes timeout for long-running workflows
       })
 
       const assistantMessage: Message = {
@@ -71,7 +76,9 @@ export default function AppPage() {
         ? { article_url: articleUrl }
         : { topic, website: website || undefined, max_age_days: maxAge }
 
-      const response = await axios.post('/api/ingest', payload)
+      const response = await axios.post('/api/ingest', payload, {
+        timeout: 120000  // 2 minutes timeout
+      })
 
       if (response.data.success) {
         setIngestResult(`✓ ${response.data.message}`)
@@ -131,76 +138,123 @@ export default function AppPage() {
 
         {/* Chat Tab */}
         {activeTab === 'chat' && (
-          <div className="bg-white rounded-lg shadow-lg h-[calc(100vh-250px)] flex flex-col">
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {messages.length === 0 && (
-                <div className="text-center text-gray-500 mt-12">
-                  <Database className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p className="text-lg font-medium">Ask questions about your articles</p>
-                  <p className="text-sm mt-2">Start by ingesting some articles, then ask away!</p>
-                </div>
-              )}
-
-              {messages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-3xl rounded-lg px-4 py-3 ${
-                    msg.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-900'
-                  }`}>
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                    
-                    {msg.sources && msg.sources.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-300">
-                        <p className="text-sm font-semibold mb-2">Sources:</p>
-                        {msg.sources.map((source, sIdx) => (
-                          <div key={sIdx} className="text-sm mb-2">
-                            <a 
-                              href={source.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline font-medium"
-                            >
-                              {source.title}
-                            </a>
-                            <p className="text-gray-600 text-xs mt-1">{source.snippet}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+          <div className="flex gap-4 h-[calc(100vh-250px)]">
+            {/* Main Chat Area */}
+            <div className="flex-1 bg-white rounded-lg shadow-lg flex flex-col">
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {messages.length === 0 && (
+                  <div className="text-center text-gray-500 mt-12">
+                    <Database className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p className="text-lg font-medium">Ask questions about your articles</p>
+                    <p className="text-sm mt-2">Start by ingesting some articles, then ask away!</p>
                   </div>
-                </div>
-              ))}
+                )}
 
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-lg px-4 py-3">
-                    <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
+                {messages.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-3xl rounded-lg px-4 py-3 ${
+                      msg.role === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-900'
+                    }`}>
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    </div>
                   </div>
+                ))}
+
+                {loading && (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-100 rounded-lg px-4 py-3">
+                      <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Input */}
+              <div className="border-t p-4">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Ask a question about your articles..."
+                    className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    disabled={loading}
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={loading || !input.trim()}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send className="h-5 w-5" />
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
 
-            {/* Input */}
-            <div className="border-t p-4">
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="Ask a question about your articles..."
-                  className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  disabled={loading}
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={loading || !input.trim()}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Send className="h-5 w-5" />
-                </button>
+            {/* Sources Sidebar */}
+            <div className="w-96 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
+                <h3 className="text-white font-semibold flex items-center">
+                  <Database className="h-5 w-5 mr-2" />
+                  Source Documents
+                </h3>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {messages
+                  .filter(msg => msg.role === 'assistant' && msg.sources && msg.sources.length > 0)
+                  .slice(-1)[0]?.sources ? (
+                  messages
+                    .filter(msg => msg.role === 'assistant' && msg.sources && msg.sources.length > 0)
+                    .slice(-1)[0].sources.map((source, idx) => (
+                      <div key={idx} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 transition-colors">
+                        <a 
+                          href={source.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 font-semibold text-sm flex items-start gap-2 mb-2"
+                        >
+                          <LinkIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span className="line-clamp-2">{source.title}</span>
+                        </a>
+                        
+                        {source.authors && (
+                          <p className="text-xs text-gray-600 mb-1">
+                            <span className="font-medium">Authors:</span> {source.authors}
+                          </p>
+                        )}
+                        
+                        {source.language && (
+                          <p className="text-xs text-gray-600 mb-1">
+                            <span className="font-medium">Language:</span> {source.language.toUpperCase()}
+                          </p>
+                        )}
+                        
+                        {source.topics && (
+                          <div className="mt-2">
+                            <p className="text-xs font-medium text-gray-700 mb-1">Topics:</p>
+                            <p className="text-xs text-gray-600 line-clamp-2">{source.topics}</p>
+                          </div>
+                        )}
+                        
+                        {source.snippet && (
+                          <p className="text-xs text-gray-600 mt-2 line-clamp-3 italic">
+                            {source.snippet}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                ) : (
+                  <div className="text-center text-gray-400 mt-12">
+                    <Database className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                    <p className="text-sm">No sources yet</p>
+                    <p className="text-xs mt-1">Ask a question to see source documents</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
