@@ -14,11 +14,16 @@ services:
       - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-true}
       - LANGCHAIN_ENDPOINT=${LANGCHAIN_ENDPOINT:-https://api.smith.langchain.com}
       - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-newsiq}
-      - CHROMA_PERSIST_DIRECTORY=/app/docs/chroma
+      - CHROMA_PERSIST_DIRECTORY=/app/app/chroma
       - HOST=0.0.0.0
       - PORT=8000
     volumes:
-      - chroma-data:/app/docs/chroma
+      # Mount source code for hot reload
+      - ./backend:/app
+      # Persist chroma data
+      - chroma-data:/app/app/chroma
+      # Exclude node_modules and __pycache__
+      - /app/__pycache__
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
@@ -37,8 +42,14 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend:/app
+      # Exclude node_modules and .next
+      - /app/node_modules
+      - /app/.next
     depends_on:
       backend:
         condition: service_healthy

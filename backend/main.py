@@ -5,11 +5,11 @@ from typing import Optional, List
 import uuid
 import os
 from dotenv import load_dotenv
-from app.services import vectorstore_service, article_service
 
 # Load environment variables
 load_dotenv()
 
+# Initialize FastAPI app
 app = FastAPI(title="NewsIQ API", version="1.0.0")
 
 # CORS middleware
@@ -21,12 +21,53 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global instances - initialized on startup
+vectorstore_service = None
+article_service = None
+summarizer_graph = None
+qa_graph = None
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services and workflows on startup."""
+    global vectorstore_service, article_service, summarizer_graph, qa_graph
+    
+    from app.services import VectorStoreService, ArticleService
+    from app.workflows.stories.workflows import article_summarization_graph
+    from app.workflows.answer.workflows import question_answering_graph
+    
+    # Initialize services
+    print("🚀 Initializing NewsIQ services...")
+    vectorstore_service = VectorStoreService(persist_directory="./app/chroma")
+    article_service = ArticleService()
+    
+    # Initialize workflows
+    print("📊 Building workflow graphs...")
+    vectorstore = vectorstore_service.get_vectorstore()
+    instruct_retriever = vectorstore_service.get_instruct_retriever(k=15)
+    
+    summarizer_graph = article_summarization_graph(vectorstore)
+    qa_graph = question_answering_graph(instruct_retriever)
+    
+    print("✅ NewsIQ is ready!")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    print("👋 Shutting down NewsIQ...")
+
 # Request/Response Models
 class ArticleIngestRequest(BaseModel):
     website: Optional[str] = None
     topic: Optional[str] = None
     max_age_days: Optional[int] = 7
     article_url: Optional[str] = None
+
+class ScrapeAndSummarizeRequest(BaseModel):
+    website_address: str
+
+class QuestionAnswerRequest(BaseModel):
+    question: str
 
 class QuestionRequest(BaseModel):
     question: str
@@ -60,6 +101,66 @@ async def root():
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.post("/api/scrape-summarize")
+async def scrape_and_summarize(request: ScrapeAndSummarizeRequest):
+    """
+    Scrape, summarize, and add article to vectorstore using the workflow.
+    
+    Example request:
+    {
+        "website_address": "https://www.wired.com/story/the-repair-app/"
+    }
+    """
+    try:
+        if not summarizer_graph:
+            raise HTTPException(status_code=500, detail="Summarizer workflow not initialized")
+        
+        # Invoke the summarization workflow
+        result = summarizer_graph.invoke({
+            "website_address": request.website_address,
+        })
+        
+        return {
+            "success": True,
+            "message": "Article scraped, summarized, and added to vectorstore",
+            "result": result
+        }
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error processing article: {str(e)}")
+
+@app.post("/api/answer")
+async def answer_question(request: QuestionAnswerRequest):
+    """
+    Answer a question using the question-answering workflow.
+    
+    Example request:
+    {
+        "question": "Why humanoids can be an issue for humanity?"
+    }
+    """
+    try:
+        if not qa_graph:
+            raise HTTPException(status_code=500, detail="QA workflow not initialized")
+        
+        # Invoke the question-answering workflow
+        result = qa_graph.invoke({
+            "question": request.question,
+        })
+        
+        return {
+            "success": True,
+            "answer": result.get("answer", "No answer generated"),
+            "result": result
+        }
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error answering question: {str(e)}")
 
 @app.post("/api/ingest", response_model=ArticleIngestResponse)
 async def ingest_article(request: ArticleIngestRequest):
