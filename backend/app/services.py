@@ -62,7 +62,7 @@ class VectorStoreService:
         """Get the vectorstore instance."""
         return self.vectorstore
     
-    def get_retriever(self, search_type: str = "similarity", k: int = 15):
+    def get_retriever(self, search_type: str = "similarity", k: int = 3):
         """Get a standard retriever."""
         if self.retriever is None or self.retriever._search_kwargs.get("k") != k:
             self.retriever = self.vectorstore.as_retriever(
@@ -71,7 +71,7 @@ class VectorStoreService:
             )
         return self.retriever
     
-    def get_instruct_retriever(self, search_type: str = "similarity", k: int = 15, 
+    def get_instruct_retriever(self, search_type: str = "similarity", k: int = 3, 
                               task_description: str = "Retrieve most relevant documents to the query"):
         """Get an instruction-based retriever."""
         base_retriever = self.get_retriever(search_type=search_type, k=k)

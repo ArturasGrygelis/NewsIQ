@@ -83,8 +83,13 @@ export default function AppPage() {
 
       if (response.data.success) {
         const data = response.data
+        console.log('📊 Received article data:', data)
+        console.log('📝 Article title:', data.article_title)
+        console.log('📄 Article text length:', data.article_text?.length)
+        console.log('📋 Article summary:', data.article_summary)
         setIngestResult(`✓ ${data.message}`)
         setIngestedArticle(data)
+        console.log('✅ Set ingestedArticle state')
         // Clear form
         setArticleUrl('')
         setTopic('')

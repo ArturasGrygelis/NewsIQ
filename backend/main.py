@@ -152,11 +152,16 @@ async def answer_question(request: QuestionAnswerRequest):
         if not qa_graph:
             raise HTTPException(status_code=500, detail="QA workflow not initialized")
         
+        print(f"📥 Received question: {request.question}")
+        
         # Invoke the question-answering workflow asynchronously
         result = await asyncio.to_thread(
             qa_graph.invoke,
             {"question": request.question}
         )
+        
+        print(f"🔍 Workflow result keys: {result.keys()}")
+        print(f"📄 Selected documents count: {len(result.get('selected_documents', []))}")
         
         # Extract documents/sources if available
         documents = result.get("selected_documents", result.get("documents", []))
@@ -164,14 +169,18 @@ async def answer_question(request: QuestionAnswerRequest):
         if documents:
             for doc in documents[:5]:  # Show up to 5 source documents
                 if hasattr(doc, 'metadata'):
-                    sources.append({
+                    source = {
                         "title": doc.metadata.get("title", "Unknown"),
                         "url": doc.metadata.get("link", ""),
                         "snippet": doc.page_content[:300] if hasattr(doc, 'page_content') else "",
                         "authors": doc.metadata.get("authors", ""),
                         "language": doc.metadata.get("language", ""),
                         "topics": doc.metadata.get("topics", "")
-                    })
+                    }
+                    sources.append(source)
+                    print(f"📚 Added source: {source['title']}")
+        
+        print(f"✅ Returning {len(sources)} sources")
         
         return {
             "answer": result.get("answer", "No answer generated"),
@@ -207,6 +216,12 @@ async def ingest_article(request: ArticleIngestRequest):
         documents = result.get("selected_document", [])
         article = documents[0] if documents else None
         
+        print(f"📊 Workflow result keys: {list(result.keys())}")
+        print(f"📄 Number of documents: {len(documents)}")
+        if article:
+            print(f"📝 Article metadata: {article.metadata}")
+            print(f"📄 Article content length: {len(article.page_content)}")
+        
         topics = result.get("topics", [])
         topics_str = ", ".join(topics) if isinstance(topics, list) else str(topics)
         
@@ -214,7 +229,7 @@ async def ingest_article(request: ArticleIngestRequest):
         authors = article.metadata.get("authors", "") if article else ""
         authors_str = ", ".join(authors) if isinstance(authors, list) else str(authors)
         
-        return ArticleIngestResponse(
+        response_data = ArticleIngestResponse(
             success=True,
             message=f"Article successfully processed and stored in vectorstore",
             article_summary=result.get("summary", ""),
@@ -223,8 +238,14 @@ async def ingest_article(request: ArticleIngestRequest):
             article_authors=authors_str,
             article_language=article.metadata.get("language", "") if article else "",
             article_topics=topics_str,
-            article_text=article.page_content[:1000] if article else ""  # First 1000 chars
+            article_text=article.page_content if article else ""  # Full content
         )
+        
+        print(f"✅ Returning response with title: {response_data.article_title}")
+        print(f"✅ Response has summary: {bool(response_data.article_summary)}")
+        print(f"✅ Response has text: {bool(response_data.article_text)}")
+        
+        return response_data
         
     except Exception as e:
         import traceback

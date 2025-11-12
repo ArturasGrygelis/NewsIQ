@@ -57,7 +57,7 @@ def question_answering_graph(retriever):
         selected_documents: str
 
     llm = ChatGroq(
-        model="openai/gpt-oss-120b",  
+        model="meta-llama/llama-4-scout-17b-16e-instruct",  
         temperature=0.0,
         max_tokens=4000,
         max_retries=3,
