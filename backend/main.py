@@ -43,7 +43,7 @@ async def startup_event():
     # Initialize workflows
     print("📊 Building workflow graphs...")
     vectorstore = vectorstore_service.get_vectorstore()
-    instruct_retriever = vectorstore_service.get_instruct_retriever(k=15)
+    instruct_retriever = vectorstore_service.get_instruct_retriever(k=3)
     
     summarizer_graph = article_summarization_graph(vectorstore)
     qa_graph = question_answering_graph(instruct_retriever)

@@ -463,7 +463,7 @@ Ask a question about ingested articles.
 - **Persistence**: `./app/chroma` directory
 - **Collection**: Auto-created per session
 - **Similarity Metric**: Cosine similarity
-- **Retrieval**: Top-k search (k=15 for QA, k=5 returned)
+- **Retrieval**: Top-k search (k=3 for QA retrieval, up to 5 sources returned in response)
 
 ## 🧪 Development
 
