@@ -1,13 +1,4 @@
-import requests
-from bs4 import BeautifulSoup
-from readability import Document
-from urllib.parse import urlparse
-import html2text
-import cloudscraper
-
-
-
-
+from langchain_community.document_loaders import NewsURLLoader
 
 def scrape_webpage_content(state):
     """

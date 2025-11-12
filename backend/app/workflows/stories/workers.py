@@ -1,4 +1,5 @@
-from langchain_core.pydantic_v1 import BaseModel, Field
+from typing_extensions import TypedDict, List, Annotated
+from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import PromptTemplate
 
 
@@ -70,7 +71,6 @@ def create_topics_identifier(llm):
 
 
 
-@traceable
 def create_article_summarizer(llm):
     """
     Creates a structured-output summarizer that summarizes an article 
